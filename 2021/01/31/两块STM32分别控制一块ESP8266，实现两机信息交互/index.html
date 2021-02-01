@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="1.前言&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; 2019年上半年，为了准备一个机器人比赛，就去研究了一下ESP8266 WIFI模块。模块本身已经被封装得很好了，可是在搭载到单片机上出现了很多问题，借此机会总结一下：单片机配置流程和中间可能遇到的一些坑。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="两块STM32分别控制一块ESP8266，实现两机信息交互">
+<meta property="og:url" content="http://example.com/2021/01/31/%E4%B8%A4%E5%9D%97STM32%E5%88%86%E5%88%AB%E6%8E%A7%E5%88%B6%E4%B8%80%E5%9D%97ESP8266%EF%BC%8C%E5%AE%9E%E7%8E%B0%E4%B8%A4%E6%9C%BA%E4%BF%A1%E6%81%AF%E4%BA%A4%E4%BA%92/index.html">
+<meta property="og:site_name" content="马达达">
+<meta property="og:description" content="1.前言&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; 2019年上半年，为了准备一个机器人比赛，就去研究了一下ESP8266 WIFI模块。模块本身已经被封装得很好了，可是在搭载到单片机上出现了很多问题，借此机会总结一下：单片机配置流程和中间可能遇到的一些坑。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-01-31T08:13:36.000Z">
+<meta property="article:modified_time" content="2021-02-01T13:53:01.877Z">
+<meta property="article:author" content="Madada">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2021/01/31/%E4%B8%A4%E5%9D%97STM32%E5%88%86%E5%88%AB%E6%8E%A7%E5%88%B6%E4%B8%80%E5%9D%97ESP8266%EF%BC%8C%E5%AE%9E%E7%8E%B0%E4%B8%A4%E6%9C%BA%E4%BF%A1%E6%81%AF%E4%BA%A4%E4%BA%92/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>两块STM32分别控制一块ESP8266，实现两机信息交互 | 马达达</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">马达达</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>宇宙中心</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>博客分类</a>
+
+  </li>
+        <li class="menu-item menu-item-schedule">
+
+    <a href="/schedule/" rel="section"><i class="fa fa-calendar fa-fw"></i>时间简史</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>我这个人</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/01/31/%E4%B8%A4%E5%9D%97STM32%E5%88%86%E5%88%AB%E6%8E%A7%E5%88%B6%E4%B8%80%E5%9D%97ESP8266%EF%BC%8C%E5%AE%9E%E7%8E%B0%E4%B8%A4%E6%9C%BA%E4%BF%A1%E6%81%AF%E4%BA%A4%E4%BA%92/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="Madada">
+      <meta itemprop="description" content="love and existence">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="马达达">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          两块STM32分别控制一块ESP8266，实现两机信息交互
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-01-31 16:13:36" itemprop="dateCreated datePublished" datetime="2021-01-31T16:13:36+08:00">2021-01-31</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-02-01 21:53:01" itemprop="dateModified" datetime="2021-02-01T21:53:01+08:00">2021-02-01</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/STM32/" itemprop="url" rel="index"><span itemprop="name">STM32</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="1-前言"><a href="#1-前言" class="headerlink" title="1.前言"></a>1.前言</h2><p>&nbsp; &nbsp; &nbsp; &nbsp; 2019年上半年，为了准备一个机器人比赛，就去研究了一下ESP8266 WIFI模块。模块本身已经被封装得很好了，可是在搭载到单片机上出现了很多问题，借此机会总结一下：<strong>单片机配置流程</strong>和中间可能遇到的<strong>一些坑</strong>。</p>
+<a id="more"></a>
+
+<h2 id="2-思路"><a href="#2-思路" class="headerlink" title="2.思路"></a>2.思路</h2><ol>
+<li><p><strong>做什么</strong>：单片机 <strong>控制</strong> ESP8266。</p>
+</li>
+<li><p><strong>怎么做</strong>：a.STM32核心板提供ESP8266所需要的硬件环境；<br>   　&nbsp;        b.程序中写好特定格式的命令，通过串口发送给ESP8266。</p>
+</li>
+<li><p><strong>技术路线</strong>：![](<a target="_blank" rel="noopener" href="https://cdn.jsdelivr.net/gh/Iamliuguo/419-xiaomada/img/ESP8266">https://cdn.jsdelivr.net/gh/Iamliuguo/419-xiaomada/img/ESP8266</a> 技术路线.png)</p>
+<p>​      </p>
+</li>
+</ol>
+<h2 id="3-硬件"><a href="#3-硬件" class="headerlink" title="3.硬件"></a>3.硬件</h2><p> 我用的是下面这块<strong>裸板</strong>，为的是能直接焊在板子上，节省空间。</p>
+<p>![](<a target="_blank" rel="noopener" href="https://cdn.jsdelivr.net/gh/Iamliuguo/419-xiaomada/img/ESP8266">https://cdn.jsdelivr.net/gh/Iamliuguo/419-xiaomada/img/ESP8266</a> 芯片.png)</p>
+<p>根据模块提供的手册，对引脚进行配置，一般来说我们使用<strong>运行模式</strong>。</p>
+<table>
+<thead>
+<tr>
+<th align="center">模式</th>
+<th align="center">CH_PD(EN)</th>
+<th align="center">RST</th>
+<th align="center">GPIO15</th>
+<th align="center">GPIO0</th>
+<th align="center">GPIO2</th>
+<th align="center">TXD0</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">运行模式</td>
+<td align="center">高</td>
+<td align="center">高</td>
+<td align="center">低</td>
+<td align="center">高</td>
+<td align="center">高</td>
+<td align="center">高</td>
+</tr>
+<tr>
+<td align="center">下载模式</td>
+<td align="center">高</td>
+<td align="center">高</td>
+<td align="center">低</td>
+<td align="center">低</td>
+<td align="center">高</td>
+<td align="center">高</td>
+</tr>
+</tbody></table>
+<p>对应的<strong>电路设计</strong>可以参考下面这张图</p>
+<p>![](<a target="_blank" rel="noopener" href="https://cdn.jsdelivr.net/gh/Iamliuguo/419-xiaomada/img/ESP8266">https://cdn.jsdelivr.net/gh/Iamliuguo/419-xiaomada/img/ESP8266</a> 应用电路.png)</p>
+<p><strong>注意</strong>：1.模块最终能有效运行的关键因素就是上图中的引脚是否<strong>电平配置</strong>到位，如果模块接入电路，通  </p>
+<p>​               电时，模块上面自带的蓝色LED小灯没有闪烁一下，那就说明模块硬件环境没有配置好（或者</p>
+<p>​               模块烧毁）。建议挨个检查引脚的电压，可能遇到的情况有a.电压不足b.完全没有电压ｃ．过</p>
+<p>​               压。那么你就要根据电路图，原理图找找是否存在断路，分压和短路等情况了。</p>
+<p>​            2.我的是裸板，我的是裸板，没有VCC,GND,RX,TX等六个引脚直接引出。像下面这样：</p>
+<p>![](<a target="_blank" rel="noopener" href="https://cdn.jsdelivr.net/gh/Iamliuguo/419-xiaomada/img/ESP8266">https://cdn.jsdelivr.net/gh/Iamliuguo/419-xiaomada/img/ESP8266</a> 封装模块.png)</p>
+<p>​              图中的裸板已经搭载在一个配套电路上了，实现了我上面说的电路设计，拿来通上电直接用，对</p>
+<p>​              刚接触的人来说特别友好，不过我是为了集成化，节约空间，就直接拿裸板焊自己板子上，所以</p>
+<p>​              需要自己配置引脚（特别坑，当初也是直接VCC,GND直接怼，结果没卵用），所以你买的什么</p>
+<p>​              模块，就看店家提供的资料，别人的不一定适合自己。</p>
+<p>​           3.模块<strong>GND</strong>要和STM32的<strong>GND</strong>相连。</p>
+<h2 id="4-软件"><a href="#4-软件" class="headerlink" title="4.软件"></a>4.软件</h2><p>先利用电脑通过串口发送信息给 ESP8266模块，熟悉一下流程。</p>
+<p>选择正确的 COM 号（WIFI与你电脑相连的串口），然后设置波特率为 <strong>115200</strong>，勾选<strong>发送新行</strong> （必选！即自动添加回车换行功能）然后发送 AT指令 到 ESP8266模块。</p>
+<p>然后理清楚一下<strong>服务器</strong>（主机）和<strong>客户端</strong>（从机）分别需要执行什么AT指令。</p>
+<table>
+<thead>
+<tr>
+<th align="left">服务器（主机）</th>
+<th>AT指令</th>
+<th>客户端（从机）</th>
+<th>AT指令</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">检测模块是否在线</td>
+<td>AT</td>
+<td>检测模块是否在线</td>
+<td>AT</td>
+</tr>
+<tr>
+<td align="left">修改服务器WIFI名和密码</td>
+<td>AT+CWSAP=”ALIENTEK”,”15902020353”,11,3</td>
+<td>设置 WIFI 模式1</td>
+<td>AT+CWMODE=1</td>
+</tr>
+<tr>
+<td align="left">设置 WIFI 模式2</td>
+<td>AT+CWMODE=2</td>
+<td>重启生效</td>
+<td>AT+RST</td>
+</tr>
+<tr>
+<td align="left">重启生效</td>
+<td>AT+RST</td>
+<td>连接服务器的WIFI</td>
+<td>AT+CWJAP=”ALIENTEK”,”15902020353”</td>
+</tr>
+<tr>
+<td align="left">建立服务器指令</td>
+<td>AT+CIPSERVER=1,8089</td>
+<td>连接服务器</td>
+<td>AT+CIPSTART=”TCP”,”你的服务器 IP 地址”,8089</td>
+</tr>
+<tr>
+<td align="left">获取服务器IP地址</td>
+<td>AT+CIFSR</td>
+<td>开启透传模式</td>
+<td>AT+CIPMODE=1</td>
+</tr>
+<tr>
+<td align="left"></td>
+<td></td>
+<td>开始透传</td>
+<td>AT+CIPSEND</td>
+</tr>
+</tbody></table>
+<p><strong>说明：</strong></p>
+<p>a. 我修改服务器WIFI名为ALIENTEK，密码15902020353，修改完后复位，可以在电脑上找到这个WIFI名，</p>
+<p>​    这也是后面客户端要连接服务器时所用到的账号密码。</p>
+<p>b. WIFI模式分为3种：1为station(客户端)；2为access point(服务器)；3为1和2的兼容模式</p>
+<p>c. 如果想要一个服务器与多个客户端通信，可以在服务器复位后插入AT+CIPMUX=1（启动多连接）即可。那</p>
+<p>   问题来了，服务器怎么知道自己要通信的客户端是谁呢？可以这样，先让客户端连接上服务器WIFI，对客</p>
+<p>   户端使用AT+CIPSTATUS，就会返回当前模块的拦截状态和连接参数 STATUS:<stat> +CIPSTATUS:<id>,</p>
+<p>  <type>,<remote_ip>,<remote _port>, <local_port>,<tetype> 。id就是我们要的值，然后AT+CIPSND </p>
+<p>   =0,5就可以针对0号客户端发送5个字节的数据了。</p>
+<p>d. 结束透传的话需要发送”+++”(该指令必须在开启透传模式下使用 )</p>
+<p>​    关于AT指令的使用细则网上已经有很多资料，我不再赘述，可以参考这篇文章 <a target="_blank" rel="noopener" href="https://blog.csdn.net/qq_35281599/article/details/80218856">两个ESP8266一个作为服务器一个作为客户端实现互相通讯</a></p>
+<p>​        多操作两遍，摸<strong>清楚流程</strong>，在电脑上能实现两者互相通信后，接下来就是在单片机上写好程序了。在单片机上写好上面AT指令，通过串口发送给ESP8266模块。上面我说到硬件最大的问题就是电压有没有给到位，而代码中最关键的问题有两个，一是<strong>格式</strong>，二是<strong>速度</strong>。</p>
+<p>​        软件我是这样写的：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*************************************************</span></span><br><span class="line"><span class="comment"></span></span><br><span class="line"><span class="comment">服务器逻辑代码</span></span><br><span class="line"><span class="comment">	</span></span><br><span class="line"><span class="comment">*************************************************/</span></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">atk_8266_server</span><span class="params">(<span class="keyword">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	atk_8266_send_cmd(<span class="string">&quot;AT&quot;</span>,<span class="string">&quot;OK&quot;</span>,<span class="number">20</span>);	      <span class="comment">//检查WIFI模块是否在线</span></span><br><span class="line"></span><br><span class="line">    atk_8266_send_cmd(<span class="string">&quot;AT+CWMODE=2&quot;</span>,<span class="string">&quot;OK&quot;</span>,<span class="number">20</span>); <span class="comment">//1.Station模式2.Ap模式3.兼容1.2两个模式		</span></span><br><span class="line">    atk_8266_send_cmd(<span class="string">&quot;AT+RST&quot;</span>,<span class="string">&quot;OK&quot;</span>,<span class="number">200</span>);     <span class="comment">//重启复位，模式生效</span></span><br><span class="line"></span><br><span class="line">    atk_8266_send_cmd(<span class="string">&quot;AT+CIPMUX=1&quot;</span>,<span class="string">&quot;OK&quot;</span>,<span class="number">20</span>); <span class="comment">//启动多连接指令			</span></span><br><span class="line"></span><br><span class="line">    atk_8266_send_cmd(<span class="string">&quot;AT+CIPSERVER=1,8089&quot;</span>,<span class="string">&quot;OK&quot;</span>,<span class="number">20</span>);<span class="comment">//建立服务器server指令		 </span></span><br><span class="line">	           </span><br><span class="line">    USART2_RX_STA=<span class="number">0</span>;                       									 </span><br><span class="line">         </span><br><span class="line">    <span class="keyword">while</span>(<span class="number">1</span>)	                              <span class="comment">//等待倒计时</span></span><br><span class="line">		&#123;</span><br><span class="line">			delay_ms(<span class="number">100</span>);												</span><br><span class="line">            <span class="keyword">if</span>(USART2_RX_STA&amp;<span class="number">0X8000</span>)          <span class="comment">//接收到期待的应答结果</span></span><br><span class="line">			  &#123;												</span><br><span class="line">                <span class="keyword">if</span>(atk_8266_check_cmd(<span class="string">&quot;start&quot;</span>))<span class="comment">//服务器接收数据&quot;start&quot;</span></span><br><span class="line">                  &#123;																			            actions();</span><br><span class="line">					<span class="keyword">break</span>;</span><br><span class="line">			      &#125;															   </span><br><span class="line">                USART2_RX_STA=<span class="number">0</span>;</span><br><span class="line">			  &#125; </span><br><span class="line">		 &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">/*************************************************</span></span><br><span class="line"><span class="comment"></span></span><br><span class="line"><span class="comment">向ESP8266发送命令</span></span><br><span class="line"><span class="comment">cmd:发送的命令字符串</span></span><br><span class="line"><span class="comment">ack:期待的应答结果,如果为空,则表示不需要等待应答</span></span><br><span class="line"><span class="comment">waittime:等待时间(单位:10ms)</span></span><br><span class="line"><span class="comment">返回值:0,发送成功(得到了期待的应答结果)</span></span><br><span class="line"><span class="comment">       1,发送失败</span></span><br><span class="line"><span class="comment">	</span></span><br><span class="line"><span class="comment">*************************************************/</span></span><br><span class="line"></span><br><span class="line"><span class="function">u8 <span class="title">atk_8266_send_cmd</span><span class="params">(u8 *cmd,u8 *ack,u16 waittime)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	u8 res=<span class="number">0</span>; </span><br><span class="line">	USART2_RX_STA=<span class="number">0</span>;</span><br><span class="line">	USART2_printf(<span class="string">&quot;%s\r\n&quot;</span>,cmd);	<span class="comment">//发送命令</span></span><br><span class="line">    </span><br><span class="line"><span class="comment">//	delay_ms(100);</span></span><br><span class="line"><span class="comment">//	USART2_printf(&quot;%s\r\n&quot;,cmd);如果碰到长指令发送无效，可以尝试发送两遍，亲测有效！！！</span></span><br><span class="line">    </span><br><span class="line">	<span class="keyword">if</span>(ack&amp;&amp;waittime)		        <span class="comment">//需要等待应答</span></span><br><span class="line">	&#123;</span><br><span class="line">		<span class="keyword">while</span>(--waittime)	        <span class="comment">//等待倒计时</span></span><br><span class="line">		&#123;</span><br><span class="line">			delay_ms(<span class="number">10</span>);</span><br><span class="line">			<span class="keyword">if</span>(USART2_RX_STA&amp;<span class="number">0X8000</span>)<span class="comment">//接收到期待的应答结果</span></span><br><span class="line">			&#123;</span><br><span class="line">				<span class="keyword">if</span>(atk_8266_check_cmd(ack))</span><br><span class="line">				&#123;</span><br><span class="line">					<span class="comment">//printf(&quot;ack:%s\r\n&quot;,(u8*)ack);</span></span><br><span class="line">					<span class="keyword">break</span>;          <span class="comment">//得到有效数据 </span></span><br><span class="line">				&#125;</span><br><span class="line">			  USART2_RX_STA=<span class="number">0</span>;</span><br><span class="line">			&#125; </span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">if</span>(waittime==<span class="number">0</span>)res=<span class="number">1</span>; </span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> res;</span><br><span class="line">&#125; </span><br><span class="line"></span><br><span class="line"><span class="comment">/*************************************************</span></span><br><span class="line"><span class="comment"></span></span><br><span class="line"><span class="comment">ESP8266发送命令后,检测接收到的应答</span></span><br><span class="line"><span class="comment">str:期待的应答结果</span></span><br><span class="line"><span class="comment">返回值:0,没有得到期待的应答结果</span></span><br><span class="line"><span class="comment">    其他,期待应答结果的位置(str的位置)</span></span><br><span class="line"><span class="comment">	</span></span><br><span class="line"><span class="comment">*************************************************/</span></span><br><span class="line"></span><br><span class="line"><span class="function">u8* <span class="title">atk_8266_check_cmd</span><span class="params">(u8 *str)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	</span><br><span class="line">	<span class="keyword">char</span> *strx=<span class="number">0</span>;</span><br><span class="line">	<span class="keyword">if</span>(USART2_RX_STA&amp;<span class="number">0X8000</span>)		<span class="comment">//接收到一次数据了</span></span><br><span class="line">	&#123; </span><br><span class="line">		USART2_RX_BUF[USART2_RX_STA&amp;<span class="number">0X7FFF</span>]=<span class="number">0</span>;<span class="comment">//添加结束符</span></span><br><span class="line">		strx=<span class="built_in">strstr</span>((<span class="keyword">const</span> <span class="keyword">char</span>*)USART2_RX_BUF,(<span class="keyword">const</span> <span class="keyword">char</span>*)str);</span><br><span class="line">	&#125; </span><br><span class="line">	<span class="keyword">return</span> (u8*)strx;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">/*************************************************</span></span><br><span class="line"><span class="comment"></span></span><br><span class="line"><span class="comment">ESP8266退出透传模式</span></span><br><span class="line"><span class="comment">返回值:0,退出成功;</span></span><br><span class="line"><span class="comment">       1,退出失败	</span></span><br><span class="line"><span class="comment">*************************************************/</span></span><br><span class="line"></span><br><span class="line"><span class="function">u8 <span class="title">atk_8266_quit_trans</span><span class="params">(<span class="keyword">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="keyword">while</span>((USART2-&gt;SR&amp;<span class="number">0X40</span>)==<span class="number">0</span>);	<span class="comment">//等待发送空</span></span><br><span class="line">	USART2-&gt;DR=<span class="string">&#x27;+&#x27;</span>;      </span><br><span class="line">	delay_ms(<span class="number">15</span>);					<span class="comment">//大于串口组帧时间(10ms)</span></span><br><span class="line">	<span class="keyword">while</span>((USART2-&gt;SR&amp;<span class="number">0X40</span>)==<span class="number">0</span>);	<span class="comment">//等待发送空</span></span><br><span class="line">	USART2-&gt;DR=<span class="string">&#x27;+&#x27;</span>;      </span><br><span class="line">	delay_ms(<span class="number">15</span>);					<span class="comment">//大于串口组帧时间(10ms)</span></span><br><span class="line">	<span class="keyword">while</span>((USART2-&gt;SR&amp;<span class="number">0X40</span>)==<span class="number">0</span>);	<span class="comment">//等待发送空</span></span><br><span class="line">	USART2-&gt;DR=<span class="string">&#x27;+&#x27;</span>;      </span><br><span class="line">	delay_ms(<span class="number">500</span>);					<span class="comment">//等待500ms</span></span><br><span class="line">	<span class="keyword">return</span> atk_8266_send_cmd(<span class="string">&quot;AT&quot;</span>,<span class="string">&quot;OK&quot;</span>,<span class="number">20</span>);<span class="comment">//退出透传判断.</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*************************************************</span></span><br><span class="line"><span class="comment"></span></span><br><span class="line"><span class="comment">客户端代码</span></span><br><span class="line"><span class="comment">	</span></span><br><span class="line"><span class="comment">*************************************************/</span></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">atk_8266_test</span><span class="params">(<span class="keyword">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;   </span><br><span class="line">   atk_8266_send_cmd(<span class="string">&quot;AT+CWMODE=1&quot;</span>,<span class="string">&quot;OK&quot;</span>,<span class="number">20</span>);<span class="comment">//1.Station模式 2.Ap模式 3.兼容1.2两个模式			</span></span><br><span class="line">   atk_8266_send_cmd(<span class="string">&quot;AT+RST&quot;</span>,<span class="string">&quot;OK&quot;</span>,<span class="number">200</span>);    <span class="comment">//重启复位</span></span><br><span class="line">    </span><br><span class="line">   atk_8266_send_cmd(<span class="string">&quot;AT+CWJAP=\&quot;ALIENTEK\&quot;,\&quot;15902020353\&quot;&quot;</span>,<span class="string">&quot;OK&quot;</span>,<span class="number">2000</span>);    <span class="comment">//连接WIFI</span></span><br><span class="line"> </span><br><span class="line">   atk_8266_send_cmd(<span class="string">&quot;AT+CIPSTART=\&quot;TCP\&quot;,\&quot;192.168.4.1\&quot;,8089&quot;</span>,<span class="string">&quot;OK&quot;</span>,<span class="number">1000</span>);<span class="comment">//连接服务器</span></span><br><span class="line">						          </span><br><span class="line">   atk_8266_send_cmd(<span class="string">&quot;AT+CIPSEND=5&quot;</span>,<span class="string">&quot;OK&quot;</span>,<span class="number">20</span>);<span class="comment">//发送5个字节数据</span></span><br><span class="line"></span><br><span class="line">   atk_8266_send_cmd(<span class="string">&quot;start&quot;</span>,<span class="string">&quot;OK&quot;</span>,<span class="number">100</span>);      <span class="comment">//发送&quot;start&quot;</span></span><br><span class="line"></span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p><strong>注意</strong>：</p>
+<p>a.格式问题基本如上，上面的AT指令可以通过串口发送，ESP8266也能识别。</p>
+<p>b.速度问题，我必须强调一下，单片机发送命令的速度是非常快的，远快于8266模块接收到指令并返回给单片机</p>
+<p>   这个过程。有可能一连串指令中有一个反应慢了点（客户端WIFI连接服务器WIFI时耗用的时间在1秒到10秒不</p>
+<p>   等），单片机就可能会略过这个指令，导致WIFI连接不上。但对于单片机来说，你又无法直接看到到底是哪个指</p>
+<p>   令失效，我的做法比较笨，有两个思路：一是在程序中每个指令若执行成功就会有返回值，并通过串口打印在电</p>
+<p>   脑上；二是将单片机控制的ESP8266和电脑串口控制的ESP8266进行通信，这样你能确保电脑控制的一定不会出</p>
+<p>   错，同时连接时产生的一些信息会打印在串口助手窗口上，有利于排查错误。总之，每个指令的等待时间不一</p>
+<p>   样，需要自己不断调整。</p>
+<p>c.如果单独发一条格式正确的长指令（比如修改WIFI名指令），也可能会出现没有接收成功的问题。有一个不清楚</p>
+<p>   问题在哪的办法：延时一两百毫秒，再发送一遍。（惭愧，没搞清楚为什么这样弄一下就会有用，如果有知道的</p>
+<p>   大佬麻烦在评论区指出。）</p>
+<h2 id="5-总结"><a href="#5-总结" class="headerlink" title="5.总结"></a>5.总结</h2><h5 id="a-凡是不能打败你的，都使你更加强大，但也不能太折磨自己"><a href="#a-凡是不能打败你的，都使你更加强大，但也不能太折磨自己" class="headerlink" title="a.凡是不能打败你的，都使你更加强大，但也不能太折磨自己"></a>a.凡是不能打败你的，都使你更加强大，但也不能太折磨自己</h5><p>​        终于理解嵌入式为什么坑了，配个WIFI花了大半时间在硬件上，板子设计缺陷，焊接错误，8266电路配置不到位，整得我死去活来的，说多了都是自闭。最终还是对硬件，串口有了更好的掌握。可能先买模块组装比较好，或者有人带带上手比较快，不然太折磨人了。</p>
+<h5 id="b-由易入难"><a href="#b-由易入难" class="headerlink" title="b.由易入难"></a>b.由易入难</h5><p>​        没有在电脑上通过串口控制ESP8266模块的经验，会对在单片机上配置带来没有可参照标准现象，8266实际反应速度等 相对精准的参考依据，就像在黑暗中只能用手摸着路回家了，其难度可想而知。所以还是要借用别人成熟的项目经验，自己模仿着来操作，会少踩很多坑，也会少做很多无用功。</p>
+<p>​        买开发板搭配视频学习&gt;寻找自己感兴趣且别人有教程的项目&gt;积累足够经验开始自己开发。像我这个新手直接硬刚真的是遭罪啊。</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div>谢谢你请我喝冰阔落！</div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/wechatpay.png" alt="Madada 微信支付">
+        <p>微信支付</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/alipay.png" alt="Madada 支付宝">
+        <p>支付宝</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/01/28/STM32%20f103%E6%90%AD%E9%85%8DLM386%E5%A3%B0%E9%9F%B3%E4%BC%A0%E6%84%9F%E5%99%A8%E5%AE%9E%E7%8E%B0%E7%AE%80%E5%8D%95%E9%9F%B3%E4%B9%90%E8%AF%86%E5%88%AB/" rel="prev" title="STM32 f103搭配LM386声音传感器实现简单音乐识别">
+      <i class="fa fa-chevron-left"></i> STM32 f103搭配LM386声音传感器实现简单音乐识别
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  <div class="comments">
+    <div id="lv-container" data-id="city" data-uid="MTAyMC81MjYwMC8yOTA3OA=="></div>
+  </div>
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">1.前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-%E6%80%9D%E8%B7%AF"><span class="nav-number">2.</span> <span class="nav-text">2.思路</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-%E7%A1%AC%E4%BB%B6"><span class="nav-number">3.</span> <span class="nav-text">3.硬件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-%E8%BD%AF%E4%BB%B6"><span class="nav-number">4.</span> <span class="nav-text">4.软件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-%E6%80%BB%E7%BB%93"><span class="nav-number">5.</span> <span class="nav-text">5.总结</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#a-%E5%87%A1%E6%98%AF%E4%B8%8D%E8%83%BD%E6%89%93%E8%B4%A5%E4%BD%A0%E7%9A%84%EF%BC%8C%E9%83%BD%E4%BD%BF%E4%BD%A0%E6%9B%B4%E5%8A%A0%E5%BC%BA%E5%A4%A7%EF%BC%8C%E4%BD%86%E4%B9%9F%E4%B8%8D%E8%83%BD%E5%A4%AA%E6%8A%98%E7%A3%A8%E8%87%AA%E5%B7%B1"><span class="nav-number">5.0.0.1.</span> <span class="nav-text">a.凡是不能打败你的，都使你更加强大，但也不能太折磨自己</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#b-%E7%94%B1%E6%98%93%E5%85%A5%E9%9A%BE"><span class="nav-number">5.0.0.2.</span> <span class="nav-text">b.由易入难</span></a></li></ol></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Madada"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">Madada</p>
+  <div class="site-description" itemprop="description">love and existence</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+          <span class="site-state-item-count">2</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Iamliuguo" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;Iamliuguo" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://blog.csdn.net/weixin_42959458?spm=1010.2135.3001.5343" title="CSDN → https:&#x2F;&#x2F;blog.csdn.net&#x2F;weixin_42959458?spm&#x3D;1010.2135.3001.5343" rel="noopener" target="_blank"><i class="fab fa-stack-overflow fa-fw"></i>CSDN</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://space.bilibili.com/264396291" title="BiLiBiLi → https:&#x2F;&#x2F;space.bilibili.com&#x2F;264396291" rel="noopener" target="_blank"><i class="fab fa-youtube fa-fw"></i>BiLiBiLi</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:yourname@gmail.com" title="E-Mail → mailto:yourname@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+<iframe frameborder="no" border="0" marginwidth="0" marginheight="0" width=280 height=52 src="//music.163.com/outchain/player?type=2&id=758092&auto=0&height=32"></iframe>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+
+
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Madada</span>
+</div>
+
+
+<div class="runtime">
+<span id="timeDate">载入天数...</span><span id="times">载入时分秒...</span>
+<script>
+    var now = new Date(); 
+    function createtime() { 
+        var grt= new Date("01/08/2021 08:41:00");//此处修改你的建站时间或者网站上线时间 月、日、年
+        now.setTime(now.getTime()+250); 
+        days = (now - grt ) / 1000 / 60 / 60 / 24; dnum = Math.floor(days); 
+        hours = (now - grt ) / 1000 / 60 / 60 - (24 * dnum); hnum = Math.floor(hours); 
+        if(String(hnum).length ==1 ){hnum = "0" + hnum;} minutes = (now - grt ) / 1000 /60 - (24 * 60 * dnum) - (60 * hnum); 
+        mnum = Math.floor(minutes); if(String(mnum).length ==1 ){mnum = "0" + mnum;} 
+        seconds = (now - grt ) / 1000 - (24 * 60 * 60 * dnum) - (60 * 60 * hnum) - (60 * mnum); 
+        snum = Math.round(seconds); if(String(snum).length ==1 ){snum = "0" + snum;} 
+        document.getElementById("timeDate").innerHTML = "这个小世界居然存在了 "+dnum+" 天 "; 
+        document.getElementById("times").innerHTML = hnum + " 小时 " + mnum + " 分 " + snum + " 秒"; 
+    } 
+setInterval("createtime()",250);
+</script>
+</div>
+
+
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  
+  <script color='0,0,255' opacity='0.5' zIndex='-1' count='99' src="/lib/canvas-nest/canvas-nest.min.js"></script>
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+<script>
+NexT.utils.loadComments(document.querySelector('#lv-container'), () => {
+  window.livereOptions = {
+    refer: location.pathname.replace(CONFIG.root, '').replace('index.html', '')
+  };
+  (function(d, s) {
+    var j, e = d.getElementsByTagName(s)[0];
+    if (typeof LivereTower === 'function') { return; }
+    j = d.createElement(s);
+    j.src = 'https://cdn-city.livere.com/js/embed.dist.js';
+    j.async = true;
+    e.parentNode.insertBefore(j, e);
+  })(document, 'script');
+});
+</script>
+
+</body>
+</html>
